@@ -7,35 +7,57 @@ site = urllib.request.urlopen('http://catalogue.uci.edu/donaldbrenschoolofinform
 siteHtml = site.read()
 
 soup = BeautifulSoup(siteHtml, 'html.parser')
+# Course listing are under the sc_courselist class tag
 require = soup.find(class_ = 'sc_courselist')
 #print(require.get_text())
 rString = require.get_text().replace(u'\xa0', u' ')
 
-def rebuild_course(res) -> list:
-    department = re.match(r"(?:[A-Z&]+\s?[A-Z&]+)+", res)[0]
-    
+# Helper regex that removes title descriptors as well as white spaces
+def stripTitle(target : str) -> str:
+    return re.sub(r"\(?[A-Za-z][a-z]+:?\)?", "", target).strip()
 
-def convert_requirements (req) :
+# Used to rebuild the course codes for series of classes
+def rebuild_series(res : str) -> list:
+    lst = []
+    # Takes the department from the series
+    department = re.match(r"(?:[A-Z&]+[0-9]?\s?[A-Z&]+)+", res)[0]
+    # Regexes the course codes
+    courseCodes = re.findall(r"(?:[0-9]+[A-Z]*)", res)
+    for courseCode in courseCodes:
+        lst.append(f'{department}{courseCode}')
+    print(lst)
+    return lst
+
+# Converts html page into a course dataset
+def convert_requirements (req : str) :
     splitReq = re.split(r"[A-Z]-?[0-9]?\.", req)
     for x in splitReq:
         x = x.strip().strip("\n")
         if ('Upper-division' == x or 'Lower-division'== x or "Specialization" in x):
             continue
-        titleReq = re.match(r"(?:.*:\s.*\.|:)|(?:.*:)|(?:.*\.)|(?:[A-Z][a-z]+)", x)
-        print(titleReq[0])
-        if ('Select' and 'series' in x) :
-            series = x.split('or')
-            for serie in series:
-                # stripped = re.sub(r"\(?[A-Za-z][a-z]+:?\)?", "", serie).strip()
-                # print(stripped)
-                # rebuild_course(stripped)
-                pass
+        titleReq = re.match(r"(?:.*:\s.*\.|:)|(?:.*:)|(?:.*\.)|(?:[A-Z][a-z]+)", x)[0]
+        print(titleReq)
+        x = re.sub(titleReq, "", x, count = 1).strip()
+        #print(x)
+        # Checks if the course requirement is multiple
+        if ('Select' in titleReq) :
+            if 'series' in titleReq:
+                series = x.split('or')
+                for serie in series:
+                    stripped = stripTitle(serie)
+                    print(stripped)
+                    rebuild_series(stripped)
+                
         else:
-            pass
-            #print(x)
-            
-            # print(x)
-        print()
+            courses = x.split("    ")
+            for course in courses:
+                if ' or ' in course:
+                    print("Decisions decisions")
+                    print()
+                else:
+                    courseCodes = re.findall(r"(?:[0-9]+[A-Z]*)", course)
+                    print(courseCodes)
+            print()
 
         
 print(convert_requirements(rString))
